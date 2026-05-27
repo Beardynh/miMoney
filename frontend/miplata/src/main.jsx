@@ -420,6 +420,13 @@ export default function MiMoneyApp(){
     setDashData(null);
   };
 
+  const checkPendingRequests = async () => {
+    try {
+      const res = await api.request("/api/auth/link-partner/pending");
+      setPendingReqs(res.pending || []);
+    } catch(e) { /* silently fail */ }
+  };
+
   useEffect(() => {
     const init = async () => {
       const token = api.getToken();
@@ -448,6 +455,7 @@ export default function MiMoneyApp(){
         }));
         setTxs(mappedTxs);
         setDashData(dash);
+        if (!u.partner_id) checkPendingRequests();
       } catch (e) {
         console.error("Token no válido o expirado:", e);
         api.clearToken();
@@ -458,6 +466,13 @@ export default function MiMoneyApp(){
     };
     init();
   }, []);
+
+  // Poll for pending partner requests every 30s
+  useEffect(() => {
+    if (!user || user.partner_id) return;
+    const interval = setInterval(checkPendingRequests, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const openAdd=(t)=>{
     const cs=CATS[t];
@@ -541,13 +556,28 @@ export default function MiMoneyApp(){
         method: "POST",
         body: JSON.stringify({ partner_email: partnerEmail })
       });
-      alert(res.message);
-      const u = await api.request("/api/auth/me");
-      setUser(u);
-      await fetchData();
+      setGeneratedCode(res.code);
       setPartnerEmail("");
     } catch(e) {
       alert(e.message || "Error al vincular pareja");
+    }
+  };
+
+  const confirmPartner = async () => {
+    if (!partnerCode) return;
+    try {
+      await api.request("/api/auth/link-partner/confirm", {
+        method: "POST",
+        body: JSON.stringify({ code: partnerCode })
+      });
+      alert("¡Vinculación exitosa! 🎉");
+      setPartnerCode("");
+      setPendingReqs([]);
+      const u = await api.request("/api/auth/me");
+      setUser(u);
+      await fetchData();
+    } catch(e) {
+      alert(e.message || "Código inválido");
     }
   };
 
@@ -849,6 +879,20 @@ export default function MiMoneyApp(){
         </main>
       </div>
 
+      {/* PARTNER REQUEST NOTIFICATION */}
+      {pendingReqs.length > 0 && !user?.partner_id && view !== "cfg" && (
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:150,padding:"12px 20px",background:"linear-gradient(135deg, #22d3ee15, #3b82f615)",borderBottom:"1px solid #22d3ee30",display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:"blur(10px)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20}}>💌</span>
+            <div>
+              <div style={{fontSize:12,fontWeight:800,color:"#22d3ee",fontFamily:"'JetBrains Mono', monospace"}}>{pendingReqs[0].requester_name} quiere vincularse contigo</div>
+              <div style={{fontSize:10,color:"#a1a1aa"}}>{pendingReqs[0].requester_email}</div>
+            </div>
+          </div>
+          <button onClick={()=>{setView("cfg");setStOpen(true);}} style={{padding:"8px 16px",borderRadius:0,border:"none",background:"#22d3ee",color:"#000000",fontSize:11,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",whiteSpace:"nowrap"}}>Ir a Configuración</button>
+        </div>
+      )}
+
       {/* MOBILE NAV */}
       <div className="mnav" style={{display:"none",position:"fixed",bottom:0,left:0,right:0,background:"#121212",borderTop:"1px solid #27272a",padding:"8px 16px",justifyContent:"space-around",zIndex:100}}>
         {nav.map(n=>(
@@ -950,10 +994,33 @@ export default function MiMoneyApp(){
               <span>✅ Vinculado con pareja</span>
               <button onClick={unlinkPartner} style={{padding:"6px 14px",borderRadius:0,border:"1px solid #ef4444",background:"transparent",color:"#ef4444",fontSize:11,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Desvincular</button>
             </div>
+          ) : generatedCode ? (
+            <div style={{padding:"14px",background:"#3b82f610",border:"1px solid #3b82f625"}}>
+              <div style={{fontSize:12,color:"#f4f4f5",marginBottom:8}}>📤 Solicitud enviada. Comparte este código con tu pareja:</div>
+              <div style={{fontSize:28,fontWeight:800,color:"#3b82f6",textAlign:"center",fontFamily:"'JetBrains Mono', monospace",letterSpacing:6,padding:"10px 0"}}>{generatedCode}</div>
+              <div style={{fontSize:11,color:"#71717a",textAlign:"center"}}>Tu pareja debe ingresarlo en su app para confirmar</div>
+              <button onClick={()=>setGeneratedCode(null)} style={{marginTop:10,width:"100%",padding:"8px",border:"1px solid #3f3f46",background:"transparent",color:"#a1a1aa",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Enviar otra solicitud</button>
+            </div>
           ) : (
-            <div style={{display:"flex",gap:8}}>
-              <input type="email" placeholder="email@pareja.com" value={partnerEmail} onChange={e=>setPartnerEmail(e.target.value)} style={{flex:1,padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
-              <button onClick={linkPartner} style={{padding:"10px 16px",borderRadius: 0,border:"none",background:"#3b82f6",color:"#000000",fontSize:13,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Vincular</button>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",gap:8}}>
+                <input type="email" placeholder="email@pareja.com" value={partnerEmail} onChange={e=>setPartnerEmail(e.target.value)} style={{flex:1,padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
+                <button onClick={linkPartner} style={{padding:"10px 16px",borderRadius: 0,border:"none",background:"#3b82f6",color:"#000000",fontSize:13,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Enviar</button>
+              </div>
+              {pendingReqs.length > 0 && (
+                <div style={{padding:"12px 14px",background:"#22d3ee10",border:"1px solid #22d3ee25"}}>
+                  <div style={{fontSize:11,color:"#22d3ee",fontWeight:800,marginBottom:8}}>📩 Solicitudes pendientes</div>
+                  {pendingReqs.map(r=>(
+                    <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderTop:"1px solid #27272a"}}>
+                      <span style={{fontSize:12,color:"#f4f4f5"}}>{r.requester_name} ({r.requester_email})</span>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <input type="text" placeholder="Código de 5 dígitos" value={partnerCode} onChange={e=>setPartnerCode(e.target.value)} maxLength={5} style={{flex:1,padding:"10px 12px",borderRadius:0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,fontWeight:800,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box",textAlign:"center",letterSpacing:4}}/>
+                    <button onClick={confirmPartner} style={{padding:"10px 16px",borderRadius:0,border:"none",background:"#22d3ee",color:"#000000",fontSize:13,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Confirmar</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
