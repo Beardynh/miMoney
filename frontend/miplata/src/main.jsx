@@ -537,7 +537,7 @@ export default function MiMoneyApp(){
   const linkPartner = async () => {
     if (!partnerEmail) return;
     try {
-      const res = await api.request("/api/auth/link-partner", {
+      const res = await api.request("/api/auth/link-partner/request", {
         method: "POST",
         body: JSON.stringify({ partner_email: partnerEmail })
       });
