@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, Target, Bug, Settings
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const api = {
   getToken: () => localStorage.getItem("token"),
