@@ -449,6 +449,17 @@ def confirm_partner_link(req: PartnerConfirmRequest, user: User = Depends(get_cu
     db.commit()
     return {"message": "Vinculación exitosa"}
 
+@app.delete("/api/auth/link-partner")
+def unlink_partner(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not user.partner_id:
+        raise HTTPException(status_code=400, detail="No tienes pareja vinculada")
+    partner = db.query(User).filter(User.id == user.partner_id).first()
+    user.partner_id = None
+    if partner:
+        partner.partner_id = None
+    db.commit()
+    return {"message": "Desvinculación exitosa"}
+
 # ─── Transaction CRUD ────────────────────────────────────────
 @app.get("/api/transactions")
 def list_transactions(

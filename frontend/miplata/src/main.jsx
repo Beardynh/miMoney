@@ -551,6 +551,19 @@ export default function MiMoneyApp(){
     }
   };
 
+  const unlinkPartner = async () => {
+    if (!confirm("¿Estás seguro de que quieres desvincular a tu pareja? Esta acción afectará a ambos.")) return;
+    try {
+      await api.request("/api/auth/link-partner", { method: "DELETE" });
+      alert("Desvinculación exitosa");
+      const u = await api.request("/api/auth/me");
+      setUser(u);
+      await fetchData();
+    } catch(e) {
+      alert(e.message || "Error al desvincular pareja");
+    }
+  };
+
   const fmt=(n)=>n.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
 
   if (loading) {
@@ -877,19 +890,9 @@ export default function MiMoneyApp(){
                 ))}
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div>
-                <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Fecha</label>
-                <input type="date" value={form.date} onChange={e=>setF({...form,date:e.target.value})} style={{width:"100%",padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
-              </div>
-              <div>
-                <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>¿Quién?</label>
-                <div style={{display:"flex",gap:6}}>
-                  {PEOPLE.map(u=>(
-                    <button key={u.id} onClick={()=>setF({...form,who:u.id})} style={{flex:1,padding:"10px",borderRadius: 0,border:form.who===u.id?"2px solid #3b82f6":"1px solid #27272a",background:form.who===u.id?"#3b82f615":"#000000",cursor:"pointer",fontSize:12,fontWeight:700,color:form.who===u.id?"#3b82f6":"#888888",fontFamily:"'JetBrains Mono', monospace"}}>{u.emoji} {u.name}</button>
-                  ))}
-                </div>
-              </div>
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Fecha</label>
+              <input type="date" value={form.date} onChange={e=>setF({...form,date:e.target.value})} style={{width:"100%",padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
             </div>
             {modal==="expense"&&form.cid&&!gc(form.cid).ess&&form.amt&&(
               <div style={{padding:"10px 14px",borderRadius: 0,background:"#3b82f610",border:"1px solid #3b82f618",marginBottom:14}}>
@@ -944,8 +947,8 @@ export default function MiMoneyApp(){
           <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>👫 Vincular Pareja</label>
           {user?.partner_id ? (
             <div style={{padding:"12px 14px",borderRadius: 0,background:"#3b82f608",border:"1px solid #3b82f615",color:"#f4f4f5",fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span>Vinculado con pareja ID: {user.partner_id}</span>
-              <span style={{color:"#3b82f6",fontWeight:700}}>Activo</span>
+              <span>✅ Vinculado con pareja</span>
+              <button onClick={unlinkPartner} style={{padding:"6px 14px",borderRadius:0,border:"1px solid #ef4444",background:"transparent",color:"#ef4444",fontSize:11,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Desvincular</button>
             </div>
           ) : (
             <div style={{display:"flex",gap:8}}>
