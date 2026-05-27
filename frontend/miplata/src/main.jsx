@@ -330,6 +330,7 @@ export default function MiMoneyApp(){
   const [tempGoal,setTempGoal]=useState("");
   const [form,setF]=useState({amt:"",desc:"",cid:null,date:new Date().toISOString().split("T")[0],who:1});
   const [stOpen,setStOpen]=useState(false);
+  const [mobileAdd,setMobileAdd]=useState(false);
 
   const PEOPLE = useMemo(() => {
     if (!user) return [];
@@ -838,9 +839,18 @@ export default function MiMoneyApp(){
       {/* MOBILE NAV */}
       <div className="mnav" style={{display:"none",position:"fixed",bottom:0,left:0,right:0,background:"#121212",borderTop:"1px solid #27272a",padding:"8px 16px",justifyContent:"space-around",zIndex:100}}>
         {nav.map(n=>(
-          <button key={n.id} onClick={()=>setView(n.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 16px",borderRadius: 0,border:"none",cursor:"pointer",background:"transparent",color:view===n.id?"#3b82f6":"#3a3a5a",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono', monospace"}}><n.icon size={20}/>{n.label}</button>
+          <button key={n.id} onClick={()=>{setView(n.id);setMobileAdd(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 16px",borderRadius: 0,border:"none",cursor:"pointer",background:"transparent",color:view===n.id?"#3b82f6":"#3a3a5a",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono', monospace"}}><n.icon size={20}/>{n.label}</button>
         ))}
-        <button onClick={()=>openAdd("expense")} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 16px",borderRadius: 0,border:"none",cursor:"pointer",background:"#3b82f615",color:"#3b82f6",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono', monospace"}}><Plus size={20}/>Agregar</button>
+        <div style={{position:"relative"}}>
+          {mobileAdd&&(
+            <div style={{position:"absolute",bottom:"100%",right:0,marginBottom:8,background:"#1e1e24",border:"1px solid #3f3f46",padding:6,display:"flex",flexDirection:"column",gap:4,minWidth:140,zIndex:200}}>
+              {[{t:"income",l:"Ingreso",icon:TrendingUp},{t:"expense",l:"Gasto",icon:TrendingDown},{t:"debt",l:"Deuda",icon:CreditCard}].map(b=>(
+                <button key={b.t} onClick={()=>{openAdd(b.t);setMobileAdd(false);}} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",border:"none",background:"transparent",color:"#f4f4f5",fontSize:12,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",width:"100%",textAlign:"left"}} className="hb"><b.icon size={16}/>{b.l}</button>
+              ))}
+            </div>
+          )}
+          <button onClick={()=>setMobileAdd(!mobileAdd)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 16px",borderRadius: 0,border:"none",cursor:"pointer",background:mobileAdd?"#3b82f625":"#3b82f615",color:"#3b82f6",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono', monospace"}}><Plus size={20}/>Agregar</button>
+        </div>
       </div>
 
       {/* ADD MODAL */}
