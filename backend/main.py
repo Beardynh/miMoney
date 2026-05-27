@@ -13,6 +13,14 @@ from datetime import date, datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
+import html as html_mod
+import re
+
+def sanitize(text: str) -> str:
+    """Escape HTML special characters to prevent stored XSS."""
+    if not text:
+        return text
+    return html_mod.escape(text, quote=True)
 
 # ─── Config ──────────────────────────────────────────────────
 SECRET_KEY = os.getenv("SECRET_KEY", "miplata-super-secret-key-cambia-esto-en-prod")
@@ -55,7 +63,17 @@ class User(Base):
     transactions = relationship("Transaction", back_populates="user", foreign_keys="Transaction.user_id")
 
 
+
+class PartnerRequest(Base):
+    __tablename__ = "partner_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(String(5), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Category(Base):
+
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)
@@ -116,6 +134,9 @@ class UserOut(BaseModel):
     partner_id: Optional[int] = None
     class Config:
         from_attributes = True
+
+class PartnerConfirmRequest(BaseModel):
+    code: str
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -213,6 +234,25 @@ app.add_middleware(
 )
 
 
+# ─── Security Headers Middleware ─────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response: StarletteResponse = await call_next(request)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
 # ─── Seed Categories ────────────────────────────────────────
 @app.on_event("startup")
 def seed():
@@ -263,9 +303,9 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == email_clean).first():
         raise HTTPException(400, "Email ya registrado")
     user = User(
-        name=req.name, email=email_clean,
+        name=sanitize(req.name), email=email_clean,
         password_hash=hash_password(req.password),
-        avatar_emoji=req.avatar_emoji,
+        avatar_emoji=sanitize(req.avatar_emoji),
         monthly_budget=req.monthly_budget,
         savings_goal=req.savings_goal,
     )
@@ -314,6 +354,8 @@ def get_me(user: User = Depends(get_current_user)):
 @app.put("/api/auth/me", response_model=UserOut)
 def update_me(updates: UserUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     for field, val in updates.model_dump(exclude_none=True).items():
+        if isinstance(val, str):
+            val = sanitize(val)
         setattr(user, field, val)
     db.commit()
     db.refresh(user)
@@ -321,92 +363,108 @@ def update_me(updates: UserUpdate, user: User = Depends(get_current_user), db: S
 
 
 # ─── Partner Linking ─────────────────────────────────────────
-@app.post("/api/auth/link-partner")
-def link_partner(req: LinkPartnerRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    partner = db.query(User).filter(User.email == req.partner_email).first()
-    if not partner:
-        raise HTTPException(404, "No se encontró usuario con ese email")
-    if partner.id == user.id:
-        raise HTTPException(400, "No puedes vincularte contigo mismo")
-    user.partner_id = partner.id
-    partner.partner_id = user.id
+import random
+
+@app.post("/api/auth/link-partner/request")
+def request_partner_link(req: LinkPartnerRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    target = db.query(User).filter(User.email == req.partner_email).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if target.id == user.id:
+        raise HTTPException(status_code=400, detail="No puedes vincularte contigo mismo")
+    if user.partner_id or target.partner_id:
+        raise HTTPException(status_code=400, detail="Uno de los usuarios ya tiene pareja vinculada")
+        
+    # Check if there is already a pending request
+    existing = db.query(PartnerRequest).filter(PartnerRequest.requester_id == user.id, PartnerRequest.target_user_id == target.id).first()
+    if existing:
+        db.delete(existing)
+        
+    code = str(random.randint(10000, 99999))
+    new_req = PartnerRequest(requester_id=user.id, target_user_id=target.id, code=code)
+    db.add(new_req)
     db.commit()
-    return {"message": f"Vinculado con {partner.name}", "partner": {"id": partner.id, "name": partner.name, "avatar_emoji": partner.avatar_emoji}}
+    
+    return {"message": "Solicitud creada", "code": code}
 
+@app.get("/api/auth/link-partner/pending")
+def get_pending_partner_requests(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reqs = db.query(PartnerRequest).filter(PartnerRequest.target_user_id == user.id).all()
+    res = []
+    for r in reqs:
+        requester = db.query(User).filter(User.id == r.requester_id).first()
+        res.append({
+            "id": r.id,
+            "requester_name": requester.name,
+            "requester_email": requester.email
+        })
+    return {"pending": res}
 
-# ─── Categories ──────────────────────────────────────────────
-@app.get("/api/categories", response_model=List[CategoryOut])
-def list_categories(type: Optional[str] = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    q = db.query(Category).filter((Category.user_id == None) | (Category.user_id == user.id))
-    if type:
-        q = q.filter(Category.type == type)
-    return q.order_by(Category.is_essential.desc(), Category.name).all()
-
-
-@app.post("/api/categories", response_model=CategoryOut, status_code=201)
-def create_category(cat: CategoryCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db_cat = Category(**cat.model_dump(), is_custom=True, user_id=user.id)
-    db.add(db_cat)
+@app.post("/api/auth/link-partner/confirm")
+def confirm_partner_link(req: PartnerConfirmRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pr = db.query(PartnerRequest).filter(PartnerRequest.target_user_id == user.id, PartnerRequest.code == req.code).first()
+    if not pr:
+        raise HTTPException(status_code=400, detail="Código inválido o solicitud no encontrada")
+        
+    requester = db.query(User).filter(User.id == pr.requester_id).first()
+    if not requester:
+        raise HTTPException(status_code=404, detail="El usuario solicitante ya no existe")
+        
+    user.partner_id = requester.id
+    requester.partner_id = user.id
+    
+    # Delete all requests involving these users
+    db.query(PartnerRequest).filter((PartnerRequest.requester_id == user.id) | (PartnerRequest.target_user_id == user.id)).delete()
+    db.query(PartnerRequest).filter((PartnerRequest.requester_id == requester.id) | (PartnerRequest.target_user_id == requester.id)).delete()
+    
     db.commit()
-    db.refresh(db_cat)
-    return db_cat
+    return {"message": "Vinculación exitosa"}
 
-
-# ─── Transactions ────────────────────────────────────────────
-@app.post("/api/transactions", response_model=TransactionOut, status_code=201)
-def create_transaction(tx: TransactionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Detect ant expense
-    cat = db.query(Category).filter(Category.id == tx.category_id).first()
-    is_ant = False
-    if cat and tx.type == "expense" and not cat.is_essential and tx.amount <= cat.ant_threshold:
-        is_ant = True
-
-    db_tx = Transaction(
-        **tx.model_dump(), user_id=user.id, is_ant_expense=is_ant,
-    )
-    db.add(db_tx)
-    db.commit()
-    db.refresh(db_tx)
-    return db_tx
-
-
-@app.get("/api/transactions", response_model=List[TransactionOut])
+# ─── Transaction CRUD ────────────────────────────────────────
+@app.get("/api/transactions")
 def list_transactions(
-    type: Optional[str] = None,
-    user_id: Optional[int] = None,
-    month: Optional[int] = None,
-    year: Optional[int] = None,
     include_partner: bool = True,
-    limit: int = 100,
-    offset: int = 0,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Transaction)
-
-    # Scope: own + partner
     user_ids = [user.id]
     if include_partner and user.partner_id:
         user_ids.append(user.partner_id)
-    if user_id:
-        q = q.filter(Transaction.user_id == user_id)
-    else:
-        q = q.filter(Transaction.user_id.in_(user_ids))
+    txs = db.query(Transaction).filter(
+        Transaction.user_id.in_(user_ids)
+    ).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    return txs
 
-    if type:
-        q = q.filter(Transaction.type == type)
-    if month and year:
-        q = q.filter(extract("month", Transaction.date) == month, extract("year", Transaction.date) == year)
 
-    return q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
+@app.post("/api/transactions")
+def create_transaction(tx: TransactionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    cat = db.query(Category).filter(Category.id == tx.category_id).first()
+    if not cat:
+        raise HTTPException(400, "Categoría no encontrada")
+    is_ant = False
+    if tx.type == "expense" and not cat.is_essential and tx.amount <= cat.ant_threshold:
+        is_ant = True
+    new_tx = Transaction(
+        type=tx.type,
+        amount=abs(tx.amount),
+        description=sanitize(tx.description),
+        date=tx.date,
+        is_ant_expense=is_ant,
+        is_recurring=tx.is_recurring,
+        user_id=user.id,
+        category_id=tx.category_id,
+    )
+    db.add(new_tx)
+    db.commit()
+    db.refresh(new_tx)
+    return new_tx
 
 
 @app.delete("/api/transactions/{tx_id}")
 def delete_transaction(tx_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
     if not tx:
-        raise HTTPException(404, "No encontrado")
-    # Only owner or partner can delete
+        raise HTTPException(404, "Transacción no encontrada")
     allowed = [user.id]
     if user.partner_id:
         allowed.append(user.partner_id)
@@ -414,10 +472,9 @@ def delete_transaction(tx_id: int, user: User = Depends(get_current_user), db: S
         raise HTTPException(403, "No autorizado")
     db.delete(tx)
     db.commit()
-    return {"ok": True}
+    return {"message": "Eliminada"}
 
 
-# ─── Dashboard ───────────────────────────────────────────────
 @app.get("/api/dashboard")
 def dashboard(
     month: Optional[int] = None,

@@ -312,6 +312,10 @@ export default function MiPlataApp(){
   const [txs,setTxs]=useState([]);
   const [dashData,setDashData]=useState(null);
   const [loading,setLoading]=useState(true);
+  const [pendingReqs, setPendingReqs]=useState([]);
+  const [partnerEmail, setPartnerEmail] = useState("");
+  const [partnerCode, setPartnerCode] = useState("");
+  const [generatedCode, setGeneratedCode] = useState(null);
   const [error,setError]=useState("");
   const [view,setView]=useState("dash");
   const [fu,setFu]=useState("all");
@@ -321,7 +325,7 @@ export default function MiPlataApp(){
   const [pending,setPending]=useState(null);
   const [budget,setBudget]=useState(0);
   const [goal,setGoal]=useState(0);
-  const [partnerEmail,setPartnerEmail]=useState("");
+
   const [tempBudget,setTempBudget]=useState("");
   const [tempGoal,setTempGoal]=useState("");
   const [form,setF]=useState({amt:"",desc:"",cid:null,date:new Date().toISOString().split("T")[0],who:1});
@@ -551,7 +555,7 @@ export default function MiPlataApp(){
   if (loading) {
     return (
       <div style={{minHeight:"100vh",background:"#121212",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono', monospace"}}>
-        <div style={{textAlign:"center",color:"#3b82f6",fontSize:18,fontWeight:700}}>
+        <div style={{textAlign:"center",color:"#ffffff",fontSize:18,fontWeight:700}}>
           <div style={{fontSize:48,marginBottom:16,animation:"float 1.5s ease-in-out infinite"}}>🐷</div>
           Cargando MiPlata...
         </div>
@@ -592,11 +596,13 @@ export default function MiPlataApp(){
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <div className="hc" style={{display:"flex",gap:3,background:"#1e1e24",borderRadius: 0,padding:3,marginRight:4}}>
-            {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:u.emoji}))].map(u=>(
-              <button key={u.id} onClick={()=>setFu(u.id)} style={{padding:"6px 12px",borderRadius: 0,border:"none",fontSize:12,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",transition:"all 0.15s",background:fu===u.id?"#3b82f6":"transparent",color:fu===u.id?"#000000":"#888888"}}>{u.label}</button>
-            ))}
-          </div>
+          {PEOPLE.length > 1 && (
+            <div className="hc" style={{display:"flex",gap:3,background:"#1e1e24",borderRadius: 0,padding:3,marginRight:4}}>
+              {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:u.emoji}))].map(u=>(
+                <button key={u.id} onClick={()=>setFu(u.id)} style={{padding:"6px 12px",borderRadius: 0,border:"none",fontSize:12,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",transition:"all 0.15s",background:fu===u.id?"#3b82f6":"transparent",color:fu===u.id?"#000000":"#888888"}}>{u.label}</button>
+              ))}
+            </div>
+          )}
           <button onClick={()=>{ setTempBudget(user?.monthly_budget || 0); setTempGoal(user?.savings_goal || 0); setStOpen(true); }} style={{width:34,height:34,borderRadius: 0,border:"1px solid #3f3f46",background:"transparent",color:"#888888",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Settings size={16}/></button>
           <button onClick={handleLogout} style={{width:34,height:34,borderRadius: 0,border:"1px solid #3f3f46",background:"transparent",color:"#888888",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><LogOut size={16}/></button>
         </div>
@@ -607,19 +613,19 @@ export default function MiPlataApp(){
         <nav className="dnav" style={{width:220,padding:"16px 10px",borderRight:"1px solid #27272a",background:"#121212",minHeight:"calc(100vh - 53px)",display:"flex",flexDirection:"column",gap:4,position:"sticky",top:53,alignSelf:"flex-start"}}>
           <div style={{padding:"0 10px",marginBottom:8}}><div style={{fontSize:12,color:"#a1a1aa",fontWeight:700,fontFamily:"'JetBrains Mono', monospace"}}>Hola, {user.name} 👋</div></div>
           {nav.map(n=>(
-            <button key={n.id} className="hb" onClick={()=>setView(n.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius: 0,border:"none",fontSize:13,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",width:"100%",textAlign:"left",cursor:"pointer",background:view===n.id?"#3b82f6":"transparent",color:view===n.id?"#000000":"#a1a1aa"}}><n.icon size={18}/>{n.label}</button>
+            <button key={n.id} className="hb" onClick={()=>setView(n.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius: 0,border:"none",fontSize:13,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",width:"100%",textAlign:"left",cursor:"pointer",background:"transparent",color:view===n.id?"#ffffff":"#71717a"}}><n.icon size={18}/>{n.label}</button>
           ))}
           <div style={{flex:1}}/>
           <div style={{borderTop:"1px solid #27272a",paddingTop:12,display:"flex",flexDirection:"column",gap:4}}>
-            <span style={{fontSize:9,fontWeight:800,color:"#3a3a5a",textTransform:"uppercase",letterSpacing:1.5,padding:"0 14px",fontFamily:"'JetBrains Mono', monospace"}}>Registrar</span>
+            <span style={{fontSize:9,fontWeight:800,color:"#a1a1aa",textTransform:"uppercase",letterSpacing:1.5,padding:"0 14px",fontFamily:"'JetBrains Mono', monospace"}}>Registrar</span>
             {[{t:"income",l:"Ingreso",icon:TrendingUp,c:"#3b82f6"},{t:"expense",l:"Gasto",icon:TrendingDown,c:"#ef4444"},{t:"debt",l:"Deuda",icon:CreditCard,c:"#3b82f6"}].map(b=>(
-              <button key={b.t} className="hl" onClick={()=>openAdd(b.t)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius: 0,border:"none",fontSize:13,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",width:"100%",textAlign:"left",background:`${b.c}12`,color:b.c,cursor:"pointer"}}><b.icon size={16}/>{b.l}</button>
+              <button key={b.t} className="hb" onClick={()=>openAdd(b.t)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius: 0,border:"none",fontSize:13,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",width:"100%",textAlign:"left",background:"transparent",color:"#71717a",cursor:"pointer"}}><b.icon size={16}/>{b.l}</button>
             ))}
           </div>
           {ants.length>0&&(
             <div style={{marginTop:8,padding:"12px 14px",borderRadius: 0,background:"#3b82f610",border:"1px solid #3b82f625"}}>
               <div style={{fontSize:11,fontWeight:800,color:"#3b82f6",fontFamily:"'JetBrains Mono', monospace",display:"flex",alignItems:"center",gap:6}}><Bug size={14}/>Gastos Hormiga</div>
-              <div style={{fontSize:20,fontWeight:800,color:"#3b82f6",fontFamily:"'JetBrains Mono',monospace",marginTop:4}}>S/ {fmt(antT)}</div>
+              <div style={{fontSize:20,fontWeight:800,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace",marginTop:4}}>S/ {fmt(antT)}</div>
               <div style={{fontSize:10,color:"#8b7a5a",marginTop:2}}>{ants.length} gastos este mes</div>
             </div>
           )}
@@ -659,8 +665,8 @@ export default function MiPlataApp(){
                       <div style={{width:32,height:32,borderRadius: 0,background:`${s.color}15`,display:"flex",alignItems:"center",justifyContent:"center"}}><s.icon size={16} color={s.color}/></div>
                       <span style={{fontSize:11,color:"#888888",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",textTransform:"uppercase",letterSpacing:0.5}}>{s.label}</span>
                     </div>
-                    <div style={{fontSize:22,fontWeight:800,color:s.color,fontFamily:"'JetBrains Mono',monospace",letterSpacing:"-0.02em",lineHeight:1}}>{s.pre}S/ {fmt(Math.abs(s.val))}</div>
-                    <div style={{fontSize:10,color:"#3a3a5a",marginTop:6,fontWeight:600}}>{s.sub}</div>
+                    <div style={{fontSize:22,fontWeight:800,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"-0.02em",lineHeight:1}}>{s.pre}S/ {fmt(Math.abs(s.val))}</div>
+                    <div style={{fontSize:10,color:"#a1a1aa",marginTop:6,fontWeight:600}}>{s.sub}</div>
                   </div>
                 ))}
               </div>
@@ -670,22 +676,22 @@ export default function MiPlataApp(){
                 <div style={{background:"#1e1e24",borderRadius: 0,padding:"18px 20px",border:"1px solid #3f3f46"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <span style={{fontSize:12,fontWeight:800,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>📊 Presupuesto</span>
-                    <span style={{fontSize:12,fontWeight:700,color:over?"#ef4444":near?"#3b82f6":"#3b82f6",fontFamily:"'JetBrains Mono',monospace"}}>S/ {fmt(exp)} / {fmt(budget)}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace"}}>S/ {fmt(exp)} / {fmt(budget)}</span>
                   </div>
                   <div style={{height:10,background:"#27272a",borderRadius: 0,overflow:"hidden"}}>
                     <div style={{height:"100%",width:`${bPct}%`,borderRadius: 0,transition:"all 0.6s",background:over?"#f87171":near?"#3b82f6":bPct>60?"#fbbf24":"#3b82f6"}}/>
                   </div>
-                  <div style={{fontSize:10,color:"#3a3a5a",marginTop:6}}>{over?"⛔ Excedido":near?"⚡ Poco margen":`✅ Quedan S/ ${fmt(budget-exp)}`}</div>
+                  <div style={{fontSize:10,color:"#a1a1aa",marginTop:6}}>{over?"⛔ Excedido":near?"⚡ Poco margen":`✅ Quedan S/ ${fmt(budget-exp)}`}</div>
                 </div>
                 <div style={{background:"#1e1e24",borderRadius: 0,padding:"18px 20px",border:"1px solid #3f3f46"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <span style={{fontSize:12,fontWeight:800,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>🎯 Meta Ahorro</span>
-                    <span style={{fontSize:12,fontWeight:700,color:"#3b82f6",fontFamily:"'JetBrains Mono',monospace"}}>S/ {fmt(saved)} / {fmt(goal)}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace"}}>S/ {fmt(saved)} / {fmt(goal)}</span>
                   </div>
                   <div style={{height:10,background:"#27272a",borderRadius: 0,overflow:"hidden"}}>
                     <div style={{height:"100%",width:`${sPct}%`,borderRadius: 0,transition:"all 0.6s",background:"linear-gradient(90deg,#3b82f6,#34d399)"}}/>
                   </div>
-                  <div style={{fontSize:10,color:"#3a3a5a",marginTop:6}}>{sPct>=100?"🎉 ¡Meta alcanzada!":sPct>50?"🚀 Buen camino":"💪 Cada sol suma"}</div>
+                  <div style={{fontSize:10,color:"#a1a1aa",marginTop:6}}>{sPct>=100?"🎉 ¡Meta alcanzada!":sPct>50?"🚀 Buen camino":"💪 Cada sol suma"}</div>
                 </div>
               </div>
 
@@ -700,9 +706,9 @@ export default function MiPlataApp(){
                         <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="100%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a"/>
-                      <XAxis dataKey="month" tick={{fill:"#3a3a5a",fontSize:11,fontFamily:"'Outfit'"}} axisLine={false} tickLine={false}/>
+                      <XAxis dataKey="month" tick={{fill:"#3a3a5a",fontSize:11,fontFamily:"'JetBrains Mono', monospace"}} axisLine={false} tickLine={false}/>
                       <YAxis tick={{fill:"#3a3a5a",fontSize:11}} axisLine={false} tickLine={false}/>
-                      <Tooltip content={<Tip/>}/>
+                      <Tooltip content={<Tip/>} cursor={{fill:"transparent"}}/>
                       <Area type="monotone" dataKey="ingresos" stroke="#22d3ee" strokeWidth={2} fill="url(#gi)" name="Ingresos"/>
                       <Area type="monotone" dataKey="gastos" stroke="#ef4444" strokeWidth={2} fill="url(#ge)" name="Gastos"/>
                     </AreaChart>
@@ -711,7 +717,7 @@ export default function MiPlataApp(){
                 <div style={{background:"#1e1e24",borderRadius: 0,padding:20,border:"1px solid #3f3f46"}}>
                   <h3 style={{margin:"0 0 14px",fontSize:13,fontWeight:800,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>🍕 ¿A dónde se va?</h3>
                   <ResponsiveContainer width="100%" height={160}>
-                    <PieChart><Pie data={ebc} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3} dataKey="value">{ebc.map((c,i)=><Cell key={i} fill={c.color}/>)}</Pie><Tooltip content={<Tip/>}/></PieChart>
+                    <PieChart><Pie data={ebc} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3} dataKey="value">{ebc.map((c,i)=><Cell key={i} fill={c.color}/>)}</Pie><Tooltip content={<Tip/>} cursor={{fill:"transparent"}}/></PieChart>
                   </ResponsiveContainer>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginTop:8}}>
                     {ebc.slice(0,6).map(c=><span key={c.name} style={{fontSize:10,color:"#888888",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:c.color,display:"inline-block"}}/>{c.icon} {c.name}</span>)}
@@ -728,7 +734,7 @@ export default function MiPlataApp(){
                       <div key={c.name}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
                           <span style={{fontSize:12,fontWeight:700,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>{c.icon} {c.name} {c.ess&&<span style={{fontSize:9,color:"#22d3ee",marginLeft:4,fontWeight:800}}>ESS</span>}</span>
-                          <span style={{fontSize:12,color:c.color,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>S/ {fmt(c.value)}</span>
+                          <span style={{fontSize:12,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>S/ {fmt(c.value)}</span>
                         </div>
                         <div style={{height:5,background:"#27272a",borderRadius: 0,overflow:"hidden"}}><div style={{height:"100%",width:`${p}%`,background:c.color,borderRadius: 0,transition:"width 0.5s"}}/></div>
                       </div>
@@ -740,9 +746,9 @@ export default function MiPlataApp(){
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={uc} barCategoryGap="30%">
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a"/>
-                      <XAxis dataKey="name" tick={{fill:"#888888",fontSize:12,fontFamily:"'Outfit'"}} axisLine={false} tickLine={false}/>
+                      <XAxis dataKey="name" tick={{fill:"#888888",fontSize:12,fontFamily:"'JetBrains Mono', monospace"}} axisLine={false} tickLine={false}/>
                       <YAxis tick={{fill:"#3a3a5a",fontSize:11}} axisLine={false} tickLine={false}/>
-                      <Tooltip content={<Tip/>}/>
+                      <Tooltip content={<Tip/>} cursor={{fill:"transparent"}}/>
                       <Bar dataKey="ingresos" fill="#22d3ee" radius={[6,6,0,0]} name="Ingresos"/>
                       <Bar dataKey="gastos" fill="#ef4444" radius={[6,6,0,0]} name="Gastos"/>
                     </BarChart>
@@ -763,9 +769,9 @@ export default function MiPlataApp(){
                       <div style={{fontSize:13,fontWeight:700,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                         {t.desc} {t.ant&&<span style={{fontSize:9,color:"#3b82f6",fontWeight:800,background:"#3b82f618",padding:"2px 6px",borderRadius: 0,marginLeft:6}}>🐜 HORMIGA</span>}
                       </div>
-                      <div style={{fontSize:11,color:"#3a3a5a"}}>{c.name} · {u?.emoji} {u?.name}</div>
+                      <div style={{fontSize:11,color:"#a1a1aa"}}>{c.name} · {u?.emoji} {u?.name}</div>
                     </div>
-                    <span style={{fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:t.type==="income"?"#22d3ee":"#ef4444",whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}S/ {fmt(t.amt)}</span>
+                    <span style={{fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:"#ffffff",whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}S/ {fmt(t.amt)}</span>
                   </div>
                 );})}
               </div>
@@ -776,7 +782,7 @@ export default function MiPlataApp(){
             <div style={{animation:"fadeIn 0.3s ease-out"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <h2 style={{margin:0,fontSize:20,fontWeight:900,fontFamily:"'JetBrains Mono', monospace"}}>📋 Movimientos</h2>
-                <span style={{fontSize:12,color:"#3a3a5a",fontFamily:"'JetBrains Mono',monospace"}}>{f.filter(t=>t.type!=="debt").length} registros</span>
+                <span style={{fontSize:12,color:"#a1a1aa",fontFamily:"'JetBrains Mono',monospace"}}>{f.filter(t=>t.type!=="debt").length} registros</span>
               </div>
               <div style={{display:"flex",gap:3,background:"#1e1e24",borderRadius: 0,padding:3,marginBottom:16}}>
                 {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:`${u.emoji} ${u.name}`}))].map(u=>(
@@ -792,11 +798,11 @@ export default function MiPlataApp(){
                         <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.desc}</span>
                         {t.ant&&<span style={{fontSize:9,color:"#3b82f6",fontWeight:800,background:"#3b82f618",padding:"2px 6px",borderRadius: 0}}>🐜 HORMIGA</span>}
                       </div>
-                      <div style={{fontSize:11,color:"#3a3a5a",marginTop:3,display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <div style={{fontSize:11,color:"#a1a1aa",marginTop:3,display:"flex",gap:8,flexWrap:"wrap"}}>
                         <span>{c.name}</span><span>{t.date}</span><span>{u?.emoji} {u?.name}</span>
                       </div>
                     </div>
-                    <span style={{fontSize:15,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:t.type==="income"?"#22d3ee":"#ef4444",marginRight:10,whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}S/ {fmt(t.amt)}</span>
+                    <span style={{fontSize:15,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:"#ffffff",marginRight:10,whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}S/ {fmt(t.amt)}</span>
                     <button className="db" onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#f87171",padding:4}}><Trash2 size={16}/></button>
                   </div>
                 );})}
@@ -816,11 +822,11 @@ export default function MiPlataApp(){
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
                         <div style={{fontSize:15,fontWeight:800,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>{c.icon} {t.desc}</div>
-                        <div style={{fontSize:11,color:"#3a3a5a",marginTop:4}}>{c.name} · {u?.emoji} {u?.name}</div>
+                        <div style={{fontSize:11,color:"#a1a1aa",marginTop:4}}>{c.name} · {u?.emoji} {u?.name}</div>
                       </div>
-                      <button onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#3a3a5a",padding:4}}><Trash2 size={16}/></button>
+                      <button onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#a1a1aa",padding:4}}><Trash2 size={16}/></button>
                     </div>
-                    <div style={{fontSize:28,fontWeight:800,color:c.color,fontFamily:"'JetBrains Mono',monospace",marginTop:12}}>S/ {fmt(t.amt)}</div>
+                    <div style={{fontSize:28,fontWeight:800,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace",marginTop:12}}>S/ {fmt(t.amt)}</div>
                   </div>
                 );})}
               </div>
@@ -842,15 +848,15 @@ export default function MiPlataApp(){
         {!confirm?(
           <>
             <div style={{marginBottom:14}}>
-              <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Monto (S/)</label>
+              <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Monto (S/)</label>
               <input type="number" value={form.amt} onChange={e=>setF({...form,amt:e.target.value})} placeholder="0.00" style={{width:"100%",padding:"14px 16px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:modal==="income"?"#22d3ee":"#ef4444",fontSize:24,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
             </div>
             <div style={{marginBottom:14}}>
-              <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Descripción</label>
+              <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Descripción</label>
               <input value={form.desc} onChange={e=>setF({...form,desc:e.target.value})} placeholder="¿En qué se fue la plata?" style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
             </div>
             <div style={{marginBottom:14}}>
-              <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Categoría</label>
+              <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Categoría</label>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,maxHeight:200,overflowY:"auto",paddingRight:4}}>
                 {(CATS[modal||"expense"]||[]).map(c=>(
                   <button key={c.id} onClick={()=>setF({...form,cid:c.id})} style={{padding:"10px 8px",borderRadius: 0,border:form.cid===c.id?`2px solid ${c.color}`:"1px solid #27272a",background:form.cid===c.id?`${c.color}15`:"#000000",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all 0.15s"}}>
@@ -863,11 +869,11 @@ export default function MiPlataApp(){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
-                <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Fecha</label>
+                <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Fecha</label>
                 <input type="date" value={form.date} onChange={e=>setF({...form,date:e.target.value})} style={{width:"100%",padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
               </div>
               <div>
-                <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>¿Quién?</label>
+                <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>¿Quién?</label>
                 <div style={{display:"flex",gap:6}}>
                   {PEOPLE.map(u=>(
                     <button key={u.id} onClick={()=>setF({...form,who:u.id})} style={{flex:1,padding:"10px",borderRadius: 0,border:form.who===u.id?"2px solid #3b82f6":"1px solid #27272a",background:form.who===u.id?"#3b82f615":"#000000",cursor:"pointer",fontSize:12,fontWeight:700,color:form.who===u.id?"#3b82f6":"#888888",fontFamily:"'JetBrains Mono', monospace"}}>{u.emoji} {u.name}</button>
@@ -906,12 +912,12 @@ export default function MiPlataApp(){
       {/* SETTINGS MODAL */}
       <Mod open={stOpen} onClose={()=>setStOpen(false)} title="⚙️ Configuración">
         <div style={{marginBottom:14}}>
-          <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'Outfit'"}}>Presupuesto mensual (S/)</label>
-          <input type="number" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#3b82f6",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
+          <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Presupuesto mensual (S/)</label>
+          <input type="number" min="0" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
         </div>
         <div style={{marginBottom:20}}>
-          <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'Outfit'"}}>Meta de ahorro mensual (S/)</label>
-          <input type="number" value={tempGoal} onChange={e=>setTempGoal(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#3b82f6",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
+          <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Meta de ahorro mensual (S/)</label>
+          <input type="number" min="0" value={tempGoal} onChange={e=>setTempGoal(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
         </div>
         <button onClick={async () => {
           await saveSettings();
@@ -925,7 +931,7 @@ export default function MiPlataApp(){
         </button>
 
         <div style={{borderTop:"1px solid #27272a",marginTop:20,paddingTop:20,marginBottom:20}}>
-          <label style={{fontSize:10,fontWeight:800,color:"#3a3a5a",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'Outfit'"}}>👫 Vincular Pareja</label>
+          <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>👫 Vincular Pareja</label>
           {user?.partner_id ? (
             <div style={{padding:"12px 14px",borderRadius: 0,background:"#3b82f608",border:"1px solid #3b82f615",color:"#f4f4f5",fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>Vinculado con pareja ID: {user.partner_id}</span>
