@@ -268,44 +268,49 @@ app.add_middleware(SecurityHeadersMiddleware)
 # ─── Seed Categories ────────────────────────────────────────
 @app.on_event("startup")
 def seed():
-    db = SessionLocal()
-    if db.query(Category).count() == 0:
-        cats = [
-            # INCOME
-            ("Sueldo",        "income",  "💼", False, "#22d3ee"),
-            ("Freelance",     "income",  "💻", False, "#a78bfa"),
-            ("Inversiones",   "income",  "📈", False, "#34d399"),
-            ("Ventas",        "income",  "🛒", False, "#fbbf24"),
-            ("Bonos",         "income",  "🎁", False, "#f472b6"),
-            ("Otros ingresos","income",  "💰", False, "#60a5fa"),
-            # EXPENSE — Essential
-            ("Alquiler",      "expense", "🏠", True,  "#f87171"),
-            ("Servicios",     "expense", "💡", True,  "#fb923c"),
-            ("Comida casa",   "expense", "🥘", True,  "#34d399"),
-            ("Transporte",    "expense", "🚌", True,  "#60a5fa"),
-            ("Salud",         "expense", "🏥", True,  "#c084fc"),
-            ("Educación",     "expense", "📚", True,  "#2dd4bf"),
-            # EXPENSE — Non-essential (gastos hormiga potenciales)
-            ("Delivery",      "expense", "🛵", False, "#fb7185"),
-            ("Café/snacks",   "expense", "☕", False, "#fbbf24"),
-            ("Comer fuera",   "expense", "🍔", False, "#f97316"),
-            ("Streaming",     "expense", "📺", False, "#a78bfa"),
-            ("Ropa",          "expense", "👕", False, "#f472b6"),
-            ("Salidas",       "expense", "🎉", False, "#e879f9"),
-            ("Apps/suscripciones","expense","📱",False,"#38bdf8"),
-            ("Antojos",       "expense", "🍫", False, "#fca5a1"),
-            ("Otros gastos",  "expense", "📦", False, "#94a3b8"),
-            # DEBT
-            ("Tarjeta crédito","debt",   "💳", False, "#f87171"),
-            ("Préstamo",      "debt",    "🏦", False, "#fb923c"),
-            ("Deuda personal","debt",    "🤝", False, "#fbbf24"),
-            ("Hipoteca",      "debt",    "🏠", False, "#f472b6"),
-            ("Otra deuda",    "debt",    "📋", False, "#94a3b8"),
-        ]
-        for name, type_, icon, essential, color in cats:
-            db.add(Category(name=name, type=type_, icon=icon, is_essential=essential, color=color))
-        db.commit()
-    db.close()
+    try:
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        count = db.query(Category).count()
+        if count == 0:
+            cats = [
+                # INCOME
+                ("Sueldo",        "income",  "💼", False, "#22d3ee"),
+                ("Freelance",     "income",  "💻", False, "#a78bfa"),
+                ("Inversiones",   "income",  "📈", False, "#34d399"),
+                ("Ventas",        "income",  "🛒", False, "#fbbf24"),
+                ("Bonos",         "income",  "🎁", False, "#f472b6"),
+                ("Otros ingresos","income",  "💰", False, "#60a5fa"),
+                # EXPENSE — Essential
+                ("Alquiler",      "expense", "🏠", True,  "#f87171"),
+                ("Servicios",     "expense", "💡", True,  "#fb923c"),
+                ("Comida casa",   "expense", "🥘", True,  "#34d399"),
+                ("Transporte",    "expense", "🚌", True,  "#60a5fa"),
+                ("Salud",         "expense", "🏥", True,  "#c084fc"),
+                ("Educación",     "expense", "📚", True,  "#2dd4bf"),
+                # EXPENSE — Non-essential (gastos hormiga potenciales)
+                ("Delivery",      "expense", "🛵", False, "#fb7185"),
+                ("Café/snacks",   "expense", "☕", False, "#fbbf24"),
+                ("Comer fuera",   "expense", "🍔", False, "#f97316"),
+                ("Streaming",     "expense", "📺", False, "#a78bfa"),
+                ("Ropa",          "expense", "👕", False, "#f472b6"),
+                ("Salidas",       "expense", "🎉", False, "#e879f9"),
+                ("Apps/suscripciones","expense","📱",False,"#38bdf8"),
+                ("Antojos",       "expense", "🍫", False, "#fca5a1"),
+                ("Otros gastos",  "expense", "📦", False, "#94a3b8"),
+                # DEBT
+                ("Tarjeta crédito","debt",   "💳", False, "#f87171"),
+                ("Préstamo",      "debt",    "🏦", False, "#fb923c"),
+                ("Deuda personal","debt",    "🤝", False, "#fbbf24"),
+                ("Hipoteca",      "debt",    "🏠", False, "#f472b6"),
+                ("Otra deuda",    "debt",    "📋", False, "#94a3b8"),
+            ]
+            for name, type_, icon, essential, color in cats:
+                db.add(Category(name=name, type=type_, icon=icon, is_essential=essential, color=color))
+            db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Seed warning: {e}")
 
 
 # ─── Auth Endpoints ──────────────────────────────────────────
