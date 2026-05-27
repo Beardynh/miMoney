@@ -449,6 +449,15 @@ def confirm_partner_link(req: PartnerConfirmRequest, user: User = Depends(get_cu
     db.commit()
     return {"message": "Vinculación exitosa"}
 
+@app.delete("/api/auth/link-partner/reject/{request_id}")
+def reject_partner_request(request_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pr = db.query(PartnerRequest).filter(PartnerRequest.id == request_id, PartnerRequest.target_user_id == user.id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    db.delete(pr)
+    db.commit()
+    return {"message": "Solicitud rechazada"}
+
 @app.delete("/api/auth/link-partner")
 def unlink_partner(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user.partner_id:

@@ -582,6 +582,15 @@ export default function MiMoneyApp(){
     }
   };
 
+  const rejectPartner = async (reqId) => {
+    try {
+      await api.request(`/api/auth/link-partner/reject/${reqId}`, { method: "DELETE" });
+      setPendingReqs(prev => prev.filter(r => r.id !== reqId));
+    } catch(e) {
+      alert(e.message || "Error al rechazar solicitud");
+    }
+  };
+
   const unlinkPartner = async () => {
     if (!confirm("¿Estás seguro de que quieres desvincular a tu pareja? Esta acción afectará a ambos.")) return;
     try {
@@ -627,7 +636,7 @@ export default function MiMoneyApp(){
         .db{opacity:0;transition:opacity 0.15s;} .hb:hover .db{opacity:1;}
         select option{background:#111111;color:#ffffff;}
         input:focus,select:focus{border-color:#3b82f6!important;box-shadow:0 0 0 3px rgba(195,247,58,0.1);}
-        @media(max-width:768px){.dnav{display:none!important;}.mnav{display:flex!important;}.sg4{grid-template-columns:repeat(2,1fr)!important;}.sg2{grid-template-columns:1fr!important;}.ma{margin-left:0!important;padding:16px!important;padding-bottom:80px!important;}.hc{display:none!important;}.dg2{grid-template-columns:1fr!important;}}
+        @media(max-width:768px){.dnav{display:none!important;}.mnav{display:flex!important;}.sg4{grid-template-columns:repeat(2,1fr)!important;}.sg2{grid-template-columns:1fr!important;}.ma{margin-left:0!important;padding:16px!important;padding-bottom:80px!important;}.hc{display:none!important;}.dg2{grid-template-columns:1fr!important;}.pnotif{top:auto!important;bottom:70px!important;left:12px!important;right:12px!important;max-width:none!important;}.preq-row{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;}}
         @media(min-width:769px){.mnav{display:none!important;}}
       `}</style>
 
@@ -882,7 +891,7 @@ export default function MiMoneyApp(){
 
       {/* PARTNER REQUEST NOTIFICATION */}
       {pendingReqs.length > 0 && !user?.partner_id && !notifDismissed && !stOpen && (
-        <div style={{position:"fixed",top:12,right:12,zIndex:150,padding:"14px 18px",background:"#1e1e24",border:"1px solid #22d3ee30",maxWidth:360,display:"flex",flexDirection:"column",gap:10}}>
+        <div className="pnotif" style={{position:"fixed",top:12,right:12,zIndex:150,padding:"14px 18px",background:"#1e1e24",border:"1px solid #22d3ee30",maxWidth:360,display:"flex",flexDirection:"column",gap:10}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:18}}>💌</span>
@@ -1013,12 +1022,13 @@ export default function MiMoneyApp(){
                 <div style={{padding:"12px 14px",background:"#22d3ee10",border:"1px solid #22d3ee25"}}>
                   <div style={{fontSize:11,color:"#22d3ee",fontWeight:800,marginBottom:8}}>📩 Solicitudes pendientes</div>
                   {pendingReqs.map(r=>(
-                    <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderTop:"1px solid #27272a"}}>
-                      <span style={{fontSize:12,color:"#f4f4f5"}}>{r.requester_name} ({r.requester_email})</span>
+                    <div key={r.id} className="preq-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderTop:"1px solid #27272a"}}>
+                      <span style={{fontSize:12,color:"#f4f4f5",wordBreak:"break-all"}}>{r.requester_name} ({r.requester_email})</span>
+                      <button onClick={()=>rejectPartner(r.id)} style={{padding:"4px 10px",borderRadius:0,border:"1px solid #ef4444",background:"transparent",color:"#ef4444",fontSize:10,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",whiteSpace:"nowrap"}}>Rechazar</button>
                     </div>
                   ))}
-                  <div style={{display:"flex",gap:8,marginTop:8}}>
-                    <input type="text" placeholder="Código de 5 dígitos" value={partnerCode} onChange={e=>setPartnerCode(e.target.value)} maxLength={5} style={{flex:1,padding:"10px 12px",borderRadius:0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,fontWeight:800,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box",textAlign:"center",letterSpacing:4}}/>
+                  <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                    <input type="text" placeholder="Código" value={partnerCode} onChange={e=>setPartnerCode(e.target.value)} maxLength={5} style={{flex:1,minWidth:100,padding:"10px 12px",borderRadius:0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,fontWeight:800,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box",textAlign:"center",letterSpacing:4}}/>
                     <button onClick={confirmPartner} style={{padding:"10px 16px",borderRadius:0,border:"none",background:"#22d3ee",color:"#000000",fontSize:13,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Confirmar</button>
                   </div>
                 </div>
