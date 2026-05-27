@@ -229,10 +229,11 @@ def get_db():
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
             logger.error(f"JWT decode OK but 'sub' is None. Payload: {payload}")
             raise HTTPException(401, "Token inválido")
+        user_id = int(user_id_str)
     except JWTError as e:
         logger.error(f"JWT decode failed: {type(e).__name__}: {e}. Token prefix: {token[:20]}... KEY hash: {hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12]}")
         raise HTTPException(401, "Token inválido o expirado")
@@ -340,7 +341,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, token_type="bearer", user={
         "id": user.id, "name": user.name, "email": user.email,
         "avatar_emoji": user.avatar_emoji, "monthly_budget": user.monthly_budget,
@@ -354,7 +355,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email_clean).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(401, "Email o contraseña incorrectos")
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, token_type="bearer", user={
         "id": user.id, "name": user.name, "email": user.email,
         "avatar_emoji": user.avatar_emoji, "monthly_budget": user.monthly_budget,
@@ -368,7 +369,7 @@ def login_form(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(User).filter(User.email == email_clean).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(401, "Credenciales inválidas")
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, token_type="bearer", user={
         "id": user.id, "name": user.name, "email": user.email,
     })
@@ -636,7 +637,7 @@ def health():
 def debug_jwt():
     """Creates a test token and immediately verifies it. For debugging only."""
     try:
-        test_token = create_access_token({"sub": 999})
+        test_token = create_access_token({"sub": "999"})
         payload = jwt.decode(test_token, SECRET_KEY, algorithms=[ALGORITHM])
         return {
             "encode": "OK",
