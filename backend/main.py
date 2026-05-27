@@ -1,4 +1,4 @@
-# ─── MiPlata API v2 ─── FastAPI + SQLite + JWT Auth ───
+# ─── MiMoney API v2 ─── FastAPI + SQLite + JWT Auth ───
 # pip install -r requirements.txt
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -23,7 +23,7 @@ def sanitize(text: str) -> str:
     return html_mod.escape(text, quote=True)
 
 # ─── Config ──────────────────────────────────────────────────
-SECRET_KEY = os.getenv("SECRET_KEY", "miplata-super-secret-key-cambia-esto-en-prod")
+SECRET_KEY = os.getenv("SECRET_KEY", "mimoney-super-secret-key-cambia-esto-en-prod")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días
 
@@ -224,7 +224,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 # ─── App ─────────────────────────────────────────────────────
-app = FastAPI(title="MiPlata API", version="2.0.0")
+app = FastAPI(title="MiMoney API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

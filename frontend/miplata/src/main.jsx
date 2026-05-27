@@ -214,7 +214,7 @@ function Auth({onIn}){
       <div style={{width:"100%",maxWidth:400,animation:"slideIn 0.5s ease-out"}}>
         <div style={{textAlign:"center",marginBottom:40}}>
           <div style={{fontSize:60,marginBottom:12,animation:"float 3s ease-in-out infinite"}}>🐷</div>
-          <h1 style={{margin:0,fontSize:40,fontWeight:900,color:"#3b82f6",letterSpacing:"-0.05em"}}>MiPlata</h1>
+          <h1 style={{margin:0,fontSize:40,fontWeight:900,color:"#3b82f6",letterSpacing:"-0.05em"}}>MiMoney</h1>
           <p style={{margin:"8px 0 0",fontSize:14,color:"#888888",fontFamily:"'JetBrains Mono', monospace",fontWeight:600}}>Tu dinero, tu control, tus reglas.</p>
         </div>
         <div style={{background:"#1e1e24",borderRadius: 0,padding:28,border:"1px solid #3f3f46"}}>
@@ -307,7 +307,7 @@ function Mod({open,onClose,children,title}){
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────
-export default function MiPlataApp(){
+export default function MiMoneyApp(){
   const [user,setUser]=useState(null);
   const [txs,setTxs]=useState([]);
   const [dashData,setDashData]=useState(null);
@@ -557,7 +557,7 @@ export default function MiPlataApp(){
       <div style={{minHeight:"100vh",background:"#121212",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono', monospace"}}>
         <div style={{textAlign:"center",color:"#ffffff",fontSize:18,fontWeight:700}}>
           <div style={{fontSize:48,marginBottom:16,animation:"float 1.5s ease-in-out infinite"}}>🐷</div>
-          Cargando MiPlata...
+          Cargando MiMoney...
         </div>
       </div>
     );
@@ -591,7 +591,7 @@ export default function MiPlataApp(){
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:24}}>🐷</span>
           <div>
-            <h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#3b82f6",letterSpacing:"-0.04em",fontFamily:"'JetBrains Mono', monospace",lineHeight:1}}>MiPlata</h1>
+            <h1 style={{margin:0,fontSize:20,fontWeight:900,color:"#3b82f6",letterSpacing:"-0.04em",fontFamily:"'JetBrains Mono', monospace",lineHeight:1}}>MiMoney</h1>
             <span style={{fontSize:10,color:"#888888",fontWeight:700,fontFamily:"'JetBrains Mono', monospace",letterSpacing:1,textTransform:"uppercase"}}>{sE} {red?"En rojos":over?"Excedido":near?"Cuidado":"Todo bien"}</span>
           </div>
         </div>
@@ -961,5 +961,5 @@ export default function MiPlataApp(){
 }
 
 import { createRoot } from "react-dom/client";
-createRoot(document.getElementById("root")).render(<MiPlataApp />);
+createRoot(document.getElementById("root")).render(<MiMoneyApp />);
 
