@@ -331,6 +331,7 @@ export default function MiMoneyApp(){
   const [form,setF]=useState({amt:"",desc:"",cid:null,date:new Date().toISOString().split("T")[0],who:1});
   const [stOpen,setStOpen]=useState(false);
   const [mobileAdd,setMobileAdd]=useState(false);
+  const [notifDismissed,setNotifDismissed]=useState(false);
 
   const PEOPLE = useMemo(() => {
     if (!user) return [];
@@ -880,16 +881,17 @@ export default function MiMoneyApp(){
       </div>
 
       {/* PARTNER REQUEST NOTIFICATION */}
-      {pendingReqs.length > 0 && !user?.partner_id && view !== "cfg" && (
-        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:150,padding:"12px 20px",background:"linear-gradient(135deg, #22d3ee15, #3b82f615)",borderBottom:"1px solid #22d3ee30",display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:"blur(10px)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:20}}>💌</span>
-            <div>
-              <div style={{fontSize:12,fontWeight:800,color:"#22d3ee",fontFamily:"'JetBrains Mono', monospace"}}>{pendingReqs[0].requester_name} quiere vincularse contigo</div>
-              <div style={{fontSize:10,color:"#a1a1aa"}}>{pendingReqs[0].requester_email}</div>
+      {pendingReqs.length > 0 && !user?.partner_id && !notifDismissed && !stOpen && (
+        <div style={{position:"fixed",top:12,right:12,zIndex:150,padding:"14px 18px",background:"#1e1e24",border:"1px solid #22d3ee30",maxWidth:360,display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>💌</span>
+              <div style={{fontSize:12,fontWeight:800,color:"#22d3ee",fontFamily:"'JetBrains Mono', monospace"}}>{pendingReqs[0].requester_name} quiere vincularse</div>
             </div>
+            <button onClick={()=>setNotifDismissed(true)} style={{background:"none",border:"none",color:"#71717a",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
           </div>
-          <button onClick={()=>{setView("cfg");setStOpen(true);}} style={{padding:"8px 16px",borderRadius:0,border:"none",background:"#22d3ee",color:"#000000",fontSize:11,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",whiteSpace:"nowrap"}}>Ir a Configuración</button>
+          <div style={{fontSize:10,color:"#a1a1aa"}}>{pendingReqs[0].requester_email}</div>
+          <button onClick={()=>{setStOpen(true);setNotifDismissed(true);}} style={{padding:"8px 16px",borderRadius:0,border:"none",background:"#22d3ee",color:"#000000",fontSize:11,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Ir a Configuración</button>
         </div>
       )}
 
