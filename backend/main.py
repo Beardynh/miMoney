@@ -15,6 +15,11 @@ from passlib.context import CryptContext
 import os
 import html as html_mod
 import re
+import hashlib
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mimoney")
 
 def sanitize(text: str) -> str:
     """Escape HTML special characters to prevent stored XSS."""
@@ -226,11 +231,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         if user_id is None:
+            logger.error(f"JWT decode OK but 'sub' is None. Payload: {payload}")
             raise HTTPException(401, "Token inválido")
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT decode failed: {type(e).__name__}: {e}. Token prefix: {token[:20]}... KEY hash: {hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12]}")
         raise HTTPException(401, "Token inválido o expirado")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        logger.error(f"JWT valid but user_id={user_id} not found in DB")
         raise HTTPException(401, "Usuario no encontrado")
     return user
 
@@ -268,6 +276,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 # ─── Seed Categories ────────────────────────────────────────
 @app.on_event("startup")
 def seed():
+    key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12]
+    logger.info(f"🔑 SECRET_KEY hash: {key_hash}")
+    logger.info(f"🗄️ DATABASE_URL type: {'PostgreSQL' if 'postgresql' in DATABASE_URL else 'SQLite'}")
     try:
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
@@ -618,7 +629,24 @@ def dashboard(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "2.0.0"}
+    key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12]
+    return {"status": "ok", "version": "2.0.0", "key_hash": key_hash}
+
+@app.get("/api/debug/jwt")
+def debug_jwt():
+    """Creates a test token and immediately verifies it. For debugging only."""
+    try:
+        test_token = create_access_token({"sub": 999})
+        payload = jwt.decode(test_token, SECRET_KEY, algorithms=[ALGORITHM])
+        return {
+            "encode": "OK",
+            "decode": "OK",
+            "payload": payload,
+            "key_hash": hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12],
+            "key_source": "env" if os.getenv("SECRET_KEY") else "default",
+        }
+    except Exception as e:
+        return {"error": str(e), "type": type(e).__name__}
 
 
 if __name__ == "__main__":
