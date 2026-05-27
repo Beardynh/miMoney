@@ -25,3 +25,6 @@ Thumbs.db
 # ─── Temp scripts ───
 *.py
 !backend/**/*.py
+
+# ─── Local docs ───
+README.md
