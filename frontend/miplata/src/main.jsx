@@ -886,7 +886,9 @@ export default function MiMoneyApp(){
                       </div>
                     </div>
                     <span style={{fontSize:15,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:"#ffffff",marginRight:10,whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}S/ {fmt(t.amt)}</span>
-                    <button className="db" onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#f87171",padding:4}}><Trash2 size={16}/></button>
+                    {t.who === user.id && (
+                      <button className="db" onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#f87171",padding:4}}><Trash2 size={16}/></button>
+                    )}
                   </div>
                 );})}
               </div>
@@ -914,7 +916,9 @@ export default function MiMoneyApp(){
                         <div style={{fontSize:15,fontWeight:800,color:"#f4f4f5",fontFamily:"'JetBrains Mono', monospace"}}>{c.icon} {t.desc}</div>
                         <div style={{fontSize:11,color:"#a1a1aa",marginTop:4}}>{c.name} · {u?.emoji} {u?.name}</div>
                       </div>
-                      <button onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#a1a1aa",padding:4}}><Trash2 size={16}/></button>
+                      {t.who === user.id && (
+                        <button onClick={()=>del(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#a1a1aa",padding:4}}><Trash2 size={16}/></button>
+                      )}
                     </div>
                     <div style={{fontSize:28,fontWeight:800,color:"#ffffff",fontFamily:"'JetBrains Mono',monospace",marginTop:12}}>S/ {fmt(t.amt)}</div>
                   </div>

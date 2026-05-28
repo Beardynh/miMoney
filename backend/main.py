@@ -514,10 +514,7 @@ def delete_transaction(tx_id: int, user: User = Depends(get_current_user), db: S
     tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
     if not tx:
         raise HTTPException(404, "Transacción no encontrada")
-    allowed = [user.id]
-    if user.partner_id:
-        allowed.append(user.partner_id)
-    if tx.user_id not in allowed:
+    if tx.user_id != user.id:
         raise HTTPException(403, "No autorizado")
     db.delete(tx)
     db.commit()
