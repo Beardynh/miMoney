@@ -41,6 +41,12 @@ const api = {
 
 const uid = () => Math.random().toString(36).substr(2, 9);
 
+const localDateStr = () => {
+  const d = new Date();
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().split("T")[0];
+};
+
 // ─── Psychological Nudges ────────────────────────────────────
 const NUDGES = {
   before: [
@@ -328,19 +334,20 @@ export default function MiMoneyApp(){
 
   const [tempBudget,setTempBudget]=useState("");
   const [tempGoal,setTempGoal]=useState("");
-  const [form,setF]=useState({amt:"",desc:"",cid:null,date:new Date().toISOString().split("T")[0],who:1});
+  const [form,setF]=useState({amt:"",desc:"",cid:null,date:localDateStr(),who:1});
   const [stOpen,setStOpen]=useState(false);
   const [mobileAdd,setMobileAdd]=useState(false);
   const [notifDismissed,setNotifDismissed]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
+  const [activeNudge,setActiveNudge]=useState("");
 
   const PEOPLE = useMemo(() => {
     if (!user) return [];
     const list = [{ id: user.id, name: "Tú", emoji: user.avatar_emoji || "👤" }];
-    if (dashData && dashData.by_user) {
-      Object.entries(dashData.by_user).forEach(([uidStr, u]) => {
-        const uid = parseInt(uidStr);
-        if (uid !== user.id) {
-          list.push({ id: uid, name: u.name, emoji: u.avatar || "👩" });
+    if (dashData && Array.isArray(dashData.by_user)) {
+      dashData.by_user.forEach((u) => {
+        if (u.id && u.id !== user.id) {
+          list.push({ id: u.id, name: u.name, emoji: u.avatar || "👩" });
         }
       });
     } else if (user.partner_id) {
@@ -421,10 +428,18 @@ export default function MiMoneyApp(){
     setDashData(null);
   };
 
-  const checkPendingRequests = async () => {
+  const checkPartnerStatus = async () => {
     try {
-      const res = await api.request("/api/auth/link-partner/pending");
-      setPendingReqs(res.pending || []);
+      const u = await api.request("/api/auth/me");
+      if (u.partner_id) {
+        setUser(u);
+        setGeneratedCode(null);
+        await fetchData();
+        alert("¡Vinculación exitosa! Tu pareja ha aceptado la solicitud. 🎉");
+      } else {
+        const res = await api.request("/api/auth/link-partner/pending");
+        setPendingReqs(res.pending || []);
+      }
     } catch(e) { /* silently fail */ }
   };
 
@@ -456,7 +471,7 @@ export default function MiMoneyApp(){
         }));
         setTxs(mappedTxs);
         setDashData(dash);
-        if (!u.partner_id) checkPendingRequests();
+        if (!u.partner_id) checkPartnerStatus();
       } catch (e) {
         console.error("Token no válido o expirado:", e);
         api.clearToken();
@@ -468,17 +483,18 @@ export default function MiMoneyApp(){
     init();
   }, []);
 
-  // Poll for pending partner requests every 30s
+  // Poll for partner linking status and pending requests every 15s
   useEffect(() => {
     if (!user || user.partner_id) return;
-    const interval = setInterval(checkPendingRequests, 30000);
+    const interval = setInterval(checkPartnerStatus, 15000);
     return () => clearInterval(interval);
   }, [user]);
 
   const openAdd=(t)=>{
     const cs=CATS[t];
-    setF({amt:"",desc:"",cid:cs[0]?.id,date:new Date().toISOString().split("T")[0],who:user?.id || 1});
+    setF({amt:"",desc:"",cid:cs[0]?.id,date:localDateStr(),who:user?.id || 1});
     setModal(t);setNudge("");setConfirm(false);
+    setActiveNudge(pick(NUDGES.before));
   };
 
   const tryAdd=()=>{
@@ -497,6 +513,8 @@ export default function MiMoneyApp(){
   };
 
   const commit=async(tx)=>{
+    if (submitting) return;
+    setSubmitting(true);
     try {
       await api.request("/api/transactions", {
         method: "POST",
@@ -512,6 +530,8 @@ export default function MiMoneyApp(){
       setModal(null);setNudge("");setConfirm(false);setPending(null);
     } catch(e) {
       alert(e.message || "Error al registrar transacción");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -624,9 +644,8 @@ export default function MiMoneyApp(){
   const nav=[{id:"dash",icon:LayoutDashboard,label:"Dashboard"},{id:"txs",icon:List,label:"Movimientos"},{id:"debts",icon:CreditCard,label:"Deudas"}];
 
   return(
-    <div style={{height:"100vh",overflow:"hidden",background:"#121212",fontFamily:"'JetBrains Mono', monospace",color:"#f4f4f5"}}>
+    <div style={{height:"100vh",overflow:"hidden",background:"#121212",fontFamily:"'Inter', sans-serif",color:"#f4f4f5"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         @keyframes slideIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
@@ -635,8 +654,11 @@ export default function MiMoneyApp(){
         .hb{transition:background 0.15s;} .hb:hover{background:#1a1a2e!important;}
         .db{opacity:0;transition:opacity 0.15s;} .hb:hover .db{opacity:1;}
         select option{background:#111111;color:#ffffff;}
-        input:focus,select:focus{border-color:#3b82f6!important;box-shadow:0 0 0 3px rgba(195,247,58,0.1);}
-        @media(max-width:768px){.dnav{display:none!important;}.mnav{display:flex!important;}.sg4{grid-template-columns:repeat(2,1fr)!important;}.sg2{grid-template-columns:1fr!important;}.ma{margin-left:0!important;padding:16px!important;padding-bottom:80px!important;}.hc{display:none!important;}.dg2{grid-template-columns:1fr!important;}.pnotif{top:auto!important;bottom:70px!important;left:12px!important;right:12px!important;max-width:none!important;}.preq-row{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;}}
+        input:focus,select:focus{border-color:#3b82f6!important;box-shadow:0 0 0 3px rgba(59,130,246,0.15)!important;outline:none;}
+        .cat-btn { transition: all 0.2s ease-in-out; }
+        .cat-btn:hover { transform: translateY(-2px); border-color: #3b82f6!important; background: rgba(59, 130, 246, 0.08)!important; }
+        .mobile-only-filter { display: none; }
+        @media(max-width:768px){.dnav{display:none!important;}.mnav{display:flex!important;}.sg4{grid-template-columns:repeat(2,1fr)!important;}.sg2{grid-template-columns:1fr!important;}.ma{margin-left:0!important;padding:16px!important;padding-bottom:80px!important;}.hc{display:none!important;}.dg2{grid-template-columns:1fr!important;}.pnotif{top:auto!important;bottom:70px!important;left:12px!important;right:12px!important;max-width:none!important;}.preq-row{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;}.db{opacity:1!important;}.mobile-only-filter{display:flex!important;}}
         @media(min-width:769px){.mnav{display:none!important;}}
       `}</style>
 
@@ -652,7 +674,7 @@ export default function MiMoneyApp(){
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           {PEOPLE.length > 1 && (
             <div className="hc" style={{display:"flex",gap:3,background:"#1e1e24",borderRadius: 0,padding:3,marginRight:4}}>
-              {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:u.emoji}))].map(u=>(
+              {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:`${u.emoji} ${u.name}`}))].map(u=>(
                 <button key={u.id} onClick={()=>setFu(u.id)} style={{padding:"6px 12px",borderRadius: 0,border:"none",fontSize:12,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",transition:"all 0.15s",background:fu===u.id?"#3b82f6":"transparent",color:fu===u.id?"#000000":"#888888"}}>{u.label}</button>
               ))}
             </div>
@@ -689,6 +711,13 @@ export default function MiMoneyApp(){
         <main className="ma" style={{flex:1,padding:24,overflowY:"auto",maxHeight:"calc(100vh - 53px)"}}>
           {view==="dash"&&(
             <div style={{animation:"fadeIn 0.3s ease-out"}}>
+              {PEOPLE.length > 1 && (
+                <div className="mobile-only-filter" style={{display:"none",gap:3,background:"#1e1e24",borderRadius:0,padding:3,marginBottom:16}}>
+                  {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:`${u.emoji} ${u.name}`}))].map(u=>(
+                    <button key={u.id} onClick={()=>setFu(u.id)} style={{flex:1,padding:"8px",borderRadius: 0,border:"none",fontSize:11,fontWeight:700,fontFamily:"'Inter', sans-serif",cursor:"pointer",background:fu===u.id?"#3b82f6":"transparent",color:fu===u.id?"#000000":"#888888"}}>{u.label}</button>
+                  ))}
+                </div>
+              )}
               {(red||over)&&(
                 <div style={{padding:"14px 20px",borderRadius: 0,marginBottom:20,display:"flex",alignItems:"center",gap:12,background:red?"#f8717112":"#ef444412",border:`1px solid ${red?"#f8717135":"#ef444435"}`,animation:"shake 0.4s ease-out"}}>
                   <AlertTriangle size={20} color={red?"#f87171":"#ef4444"}/>
@@ -866,6 +895,13 @@ export default function MiMoneyApp(){
 
           {view==="debts"&&(
             <div style={{animation:"fadeIn 0.3s ease-out"}}>
+              {PEOPLE.length > 1 && (
+                <div className="mobile-only-filter" style={{display:"none",gap:3,background:"#1e1e24",borderRadius:0,padding:3,marginBottom:16}}>
+                  {[{id:"all",label:"Todos"},...PEOPLE.map(u=>({id:u.id,label:`${u.emoji} ${u.name}`}))].map(u=>(
+                    <button key={u.id} onClick={()=>setFu(u.id)} style={{flex:1,padding:"8px",borderRadius: 0,border:"none",fontSize:11,fontWeight:700,fontFamily:"'Inter', sans-serif",cursor:"pointer",background:fu===u.id?"#3b82f6":"transparent",color:fu===u.id?"#000000":"#888888"}}>{u.label}</button>
+                  ))}
+                </div>
+              )}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
                 <h2 style={{margin:0,fontSize:20,fontWeight:900,fontFamily:"'JetBrains Mono', monospace"}}>💳 Deudas</h2>
                 <div style={{padding:"8px 16px",borderRadius: 0,background:"#3b82f612",border:"1px solid #3b82f625",color:"#3b82f6",fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono',monospace"}}>Total: S/ {fmt(dbt)}</div>
@@ -924,22 +960,22 @@ export default function MiMoneyApp(){
       {/* ADD MODAL */}
       <Mod open={!!modal} onClose={()=>{setModal(null);setConfirm(false);}} title={modal==="income"?"💰 Registrar Ingreso":modal==="expense"?"💸 Registrar Gasto":"💳 Registrar Deuda"}>
         {!confirm?(
-          <>
+          <form onSubmit={(e)=>{ e.preventDefault(); tryAdd(); }}>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Monto (S/)</label>
-              <input type="number" value={form.amt} onChange={e=>setF({...form,amt:e.target.value})} placeholder="0.00" style={{width:"100%",padding:"14px 16px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:modal==="income"?"#22d3ee":"#ef4444",fontSize:24,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+              <input type="number" required min="0.01" step="any" value={form.amt} onChange={e=>setF({...form,amt:e.target.value})} placeholder="0.00" style={{width:"100%",padding:"14px 16px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:modal==="income"?"#22d3ee":"#ef4444",fontSize:24,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
             </div>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Descripción</label>
-              <input value={form.desc} onChange={e=>setF({...form,desc:e.target.value})} placeholder="¿En qué se fue la plata?" style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
+              <input type="text" required value={form.desc} onChange={e=>setF({...form,desc:e.target.value})} placeholder="¿En qué se fue la plata?" style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:14,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
             </div>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Categoría</label>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,maxHeight:200,overflowY:"auto",paddingRight:4}}>
                 {(CATS[modal||"expense"]||[]).map(c=>(
-                  <button key={c.id} onClick={()=>setF({...form,cid:c.id})} style={{padding:"10px 8px",borderRadius: 0,border:form.cid===c.id?`2px solid ${c.color}`:"1px solid #27272a",background:form.cid===c.id?`${c.color}15`:"#000000",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all 0.15s"}}>
+                  <button type="button" key={c.id} onClick={()=>{setF({...form,cid:c.id}); setActiveNudge(pick(NUDGES.before));}} className="cat-btn" style={{padding:"10px 8px",borderRadius: 0,border:form.cid===c.id?`2px solid ${c.color}`:"1px solid #27272a",background:form.cid===c.id?`${c.color}15`:"#000000",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                     <span style={{fontSize:20}}>{c.icon}</span>
-                    <span style={{fontSize:10,fontWeight:700,color:form.cid===c.id?c.color:"#888888",fontFamily:"'JetBrains Mono', monospace",textAlign:"center",lineHeight:1.2}}>{c.name}</span>
+                    <span style={{fontSize:10,fontWeight:700,color:form.cid===c.id?c.color:"#888888",fontFamily:"'Inter', sans-serif",textAlign:"center",lineHeight:1.2}}>{c.name}</span>
                     {c.ess&&<span style={{fontSize:8,color:"#22d3ee",fontWeight:800}}>ESENCIAL</span>}
                   </button>
                 ))}
@@ -947,17 +983,17 @@ export default function MiMoneyApp(){
             </div>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Fecha</label>
-              <input type="date" value={form.date} onChange={e=>setF({...form,date:e.target.value})} style={{width:"100%",padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
+              <input type="date" required value={form.date} onChange={e=>setF({...form,date:e.target.value})} style={{width:"100%",padding:"10px 12px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#f4f4f5",fontSize:13,outline:"none",fontFamily:"'JetBrains Mono', monospace",boxSizing:"border-box"}}/>
             </div>
             {modal==="expense"&&form.cid&&!gc(form.cid).ess&&form.amt&&(
               <div style={{padding:"10px 14px",borderRadius: 0,background:"#3b82f610",border:"1px solid #3b82f618",marginBottom:14}}>
-                <div style={{fontSize:12,color:"#d4a040",fontWeight:600}}>💭 {pick(NUDGES.before)}</div>
+                <div style={{fontSize:12,color:"#d4a040",fontWeight:600}}>💭 {activeNudge}</div>
               </div>
             )}
-            <button onClick={tryAdd} style={{width:"100%",padding:"14px",borderRadius: 0,border:"none",fontSize:15,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",letterSpacing:"-0.01em",transition:"all 0.2s",background:modal==="income"?"#22d3ee":modal==="expense"?"#ef4444":"#3b82f6",color:modal==="income"?"#000000":"#fff"}}>
-              Registrar {modal==="income"?"Ingreso":modal==="expense"?"Gasto":"Deuda"}
+            <button type="submit" disabled={submitting} style={{width:"100%",padding:"14px",borderRadius: 0,border:"none",fontSize:15,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",letterSpacing:"-0.01em",transition:"all 0.2s",background:modal==="income"?"#22d3ee":modal==="expense"?"#ef4444":"#3b82f6",color:modal==="income"?"#000000":"#fff",opacity:submitting?0.7:1}}>
+              {submitting ? "Registrando..." : `Registrar ${modal==="income"?"Ingreso":modal==="expense"?"Gasto":"Deuda"}`}
             </button>
-          </>
+          </form>
         ):(
           <div style={{textAlign:"center",animation:"slideIn 0.3s ease-out"}}>
             <div style={{fontSize:48,marginBottom:16,animation:"shake 0.5s ease-out"}}>🤔</div>
@@ -970,8 +1006,8 @@ export default function MiMoneyApp(){
               </div>
             )}
             <div style={{display:"flex",gap:10}}>
-              <button onClick={noSpend} style={{flex:1,padding:"14px",borderRadius: 0,border:"2px solid #3b82f6",fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"transparent",color:"#3b82f6"}}>No gastar 💪</button>
-              <button onClick={doSpend} style={{flex:1,padding:"14px",borderRadius: 0,border:"none",fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"#ef444425",color:"#ef4444"}}>Gastar igual</button>
+              <button onClick={noSpend} disabled={submitting} style={{flex:1,padding:"14px",borderRadius: 0,border:"2px solid #3b82f6",fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"transparent",color:"#3b82f6",opacity:submitting?0.5:1}}>No gastar 💪</button>
+              <button onClick={doSpend} disabled={submitting} style={{flex:1,padding:"14px",borderRadius: 0,border:"none",fontSize:14,fontWeight:800,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"#ef444425",color:"#ef4444",opacity:submitting?0.5:1}}>{submitting ? "Registrando..." : "Gastar igual"}</button>
             </div>
           </div>
         )}
@@ -979,24 +1015,23 @@ export default function MiMoneyApp(){
 
       {/* SETTINGS MODAL */}
       <Mod open={stOpen} onClose={()=>setStOpen(false)} title="⚙️ Configuración">
-        <div style={{marginBottom:14}}>
-          <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Presupuesto mensual (S/)</label>
-          <input type="number" min="0" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Meta de ahorro mensual (S/)</label>
-          <input type="number" min="0" value={tempGoal} onChange={e=>setTempGoal(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
-        </div>
-        <button onClick={async () => {
-          await saveSettings();
-          setStOpen(false);
-        }} style={{
-          width:"100%",padding:"13px",borderRadius: 0,border:"none",fontSize:13,fontWeight:800,
-          fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"#3b82f6",color:"#000000",
-          marginBottom:16,transition:"all 0.15s"
-        }}>
-          Guardar cambios
-        </button>
+        <form onSubmit={async (e) => { e.preventDefault(); await saveSettings(); setStOpen(false); }}>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Presupuesto mensual (S/)</label>
+            <input type="number" required min="0" step="any" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
+          </div>
+          <div style={{marginBottom:20}}>
+            <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>Meta de ahorro mensual (S/)</label>
+            <input type="number" required min="0" step="any" value={tempGoal} onChange={e=>setTempGoal(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius: 0,border:"1px solid #3f3f46",background:"#121212",color:"#ffffff",fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",outline:"none",boxSizing:"border-box"}}/>
+          </div>
+          <button type="submit" style={{
+            width:"100%",padding:"13px",borderRadius: 0,border:"none",fontSize:13,fontWeight:800,
+            fontFamily:"'JetBrains Mono', monospace",cursor:"pointer",background:"#3b82f6",color:"#000000",
+            marginBottom:16,transition:"all 0.15s"
+          }}>
+            Guardar cambios
+          </button>
+        </form>
 
         <div style={{borderTop:"1px solid #27272a",marginTop:20,paddingTop:20,marginBottom:20}}>
           <label style={{fontSize:10,fontWeight:800,color:"#a1a1aa",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1.5,fontFamily:"'JetBrains Mono', monospace"}}>👫 Vincular Pareja</label>
@@ -1008,9 +1043,15 @@ export default function MiMoneyApp(){
           ) : generatedCode ? (
             <div style={{padding:"14px",background:"#3b82f610",border:"1px solid #3b82f625"}}>
               <div style={{fontSize:12,color:"#f4f4f5",marginBottom:8}}>📤 Solicitud enviada. Comparte este código con tu pareja:</div>
-              <div style={{fontSize:28,fontWeight:800,color:"#3b82f6",textAlign:"center",fontFamily:"'JetBrains Mono', monospace",letterSpacing:6,padding:"10px 0"}}>{generatedCode}</div>
+              <div style={{position:"relative", background:"#121212", border:"1px dashed #3f3f46", padding:"12px", marginBottom: 12, display:"flex", alignItems:"center", justifyContent:"center", gap: 12}}>
+                <div style={{fontSize:28,fontWeight:800,color:"#3b82f6",fontFamily:"'JetBrains Mono', monospace",letterSpacing:6}}>{generatedCode}</div>
+                <button onClick={() => {
+                  navigator.clipboard.writeText(generatedCode);
+                  alert("Código copiado al portapapeles 📋");
+                }} style={{background:"#27272a", border:"none", cursor:"pointer", color:"#a1a1aa", padding:"6px 10px", fontSize:11, fontWeight:700, fontFamily:"'Inter', sans-serif"}}>Copiar</button>
+              </div>
               <div style={{fontSize:11,color:"#71717a",textAlign:"center"}}>Tu pareja debe ingresarlo en su app para confirmar</div>
-              <button onClick={()=>setGeneratedCode(null)} style={{marginTop:10,width:"100%",padding:"8px",border:"1px solid #3f3f46",background:"transparent",color:"#a1a1aa",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono', monospace",cursor:"pointer"}}>Enviar otra solicitud</button>
+              <button onClick={()=>setGeneratedCode(null)} style={{marginTop:10,width:"100%",padding:"8px",border:"1px solid #3f3f46",background:"transparent",color:"#a1a1aa",fontSize:11,fontWeight:700,fontFamily:"'Inter', sans-serif",cursor:"pointer"}}>Enviar otra solicitud</button>
             </div>
           ) : (
             <div style={{display:"flex",flexDirection:"column",gap:10}}>

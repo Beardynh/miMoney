@@ -1,12 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
 html, body {
   margin: 0;
   padding: 0;
   background-color: #121212;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #f4f4f5;
 }
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: #27272a transparent;
+}
+
+/* Custom Scrollbars for Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
 
 /* Remove number input spinners */

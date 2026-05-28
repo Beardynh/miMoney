@@ -587,6 +587,7 @@ def dashboard(
         u = db.query(User).filter(User.id == uid).first()
         u_txs = [t for t in txs if t.user_id == uid]
         by_user[uid] = {
+            "id": uid,
             "name": u.name, "avatar": u.avatar_emoji,
             "income": sum(t.amount for t in u_txs if t.type == "income"),
             "expense": sum(t.amount for t in u_txs if t.type == "expense"),
