@@ -382,6 +382,10 @@ def get_me(user: User = Depends(get_current_user)):
 
 @app.put("/api/auth/me", response_model=UserOut)
 def update_me(updates: UserUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if updates.monthly_budget is not None and updates.monthly_budget < 0:
+        raise HTTPException(400, "El presupuesto no puede ser negativo")
+    if updates.savings_goal is not None and updates.savings_goal < 0:
+        raise HTTPException(400, "La meta de ahorro no puede ser negativa")
     for field, val in updates.model_dump(exclude_none=True).items():
         if isinstance(val, str):
             val = sanitize(val)
@@ -487,6 +491,8 @@ def list_transactions(
 
 @app.post("/api/transactions")
 def create_transaction(tx: TransactionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if tx.amount <= 0:
+        raise HTTPException(400, "El monto debe ser mayor a cero")
     cat = db.query(Category).filter(Category.id == tx.category_id).first()
     if not cat:
         raise HTTPException(400, "Categoría no encontrada")
@@ -648,24 +654,7 @@ def dashboard(
 
 @app.get("/api/health")
 def health():
-    key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12]
-    return {"status": "ok", "version": "2.0.0", "key_hash": key_hash}
-
-@app.get("/api/debug/jwt")
-def debug_jwt():
-    """Creates a test token and immediately verifies it. For debugging only."""
-    try:
-        test_token = create_access_token({"sub": "999"})
-        payload = jwt.decode(test_token, SECRET_KEY, algorithms=[ALGORITHM])
-        return {
-            "encode": "OK",
-            "decode": "OK",
-            "payload": payload,
-            "key_hash": hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:12],
-            "key_source": "env" if os.getenv("SECRET_KEY") else "default",
-        }
-    except Exception as e:
-        return {"error": str(e), "type": type(e).__name__}
+    return {"status": "ok", "version": "2.0.0"}
 
 
 if __name__ == "__main__":
